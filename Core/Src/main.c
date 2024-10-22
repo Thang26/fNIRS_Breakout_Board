@@ -28,7 +28,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define SAMPLE_COUNT 40U
-#define NUM_TASKS 1U
+#define NUM_TASKS 2U
 #define NUM_BUFFERS 2U
 
 #define NO_TRANSMISSION_IN_PROGRESS 255U
@@ -72,27 +72,27 @@ UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-/*
- * This index is used to iterate through the buffer storing ADC samples.
+/**
+ * @brief This index is used to iterate through the buffer storing ADC samples.
  */
 volatile uint8_t adcSampleIndex = 0;
 
-/*
- * This index is used to denote which buffer (0 or 1) is being filled by the ADC.
+/**
+ * @brief This index is used to denote which buffer (0 or 1) is being filled by the ADC.
  * This is used by dataBuffers array to switch between which buffer is being referred to.
  */
 volatile uint8_t bufferNumIndex = 0;
 
-/*
- * This is a flag that allows TIMER3 to do its job of collecting ADC data or switching buffer.
+/**
+ * @brief This is a flag that allows TIMER3 to do its job of collecting ADC data or switching buffer.
  * This flag is lowered once 40 ADC samples have been collected, effectively rendering
  * TIMER3 idle until the next 10ms sampling interval. This flag approach is a bandaid method
  * since you cannot disable TIMER3 (200us) and start it again within the IRQ handler of TIMER2 (10ms).
  */
 volatile uint8_t samplingActive = SAMPLING_ACTIVE;
 
-/*
- * This flag indicates whether a UART transmission is in progress or not.
+/**
+ * @brief This flag indicates whether a UART transmission is in progress or not.
  */
 uint8_t transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS; // Invalid index to indicate no transmission in progress
 
@@ -112,19 +112,21 @@ static void MX_UART4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
-void CheckBufferFull(void);
+void Check_Buffer_Full_Task(void);
+void Buffers_Overflow_Error_Task(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/*
- * Task Array for Round-Robin Scheduler
+/**
+ * @brief Task Array for Round-Robin Scheduler
  */
 void (*TaskArray[NUM_TASKS])(void) = 
 {
-	CheckBufferFull
+	Check_Buffer_Full_Task,
+	Buffers_Overflow_Error_Task
 };
 
 /* USER CODE END 0 */
@@ -305,7 +307,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_387CYCLES_5;;
+  sConfig.SamplingTime = ADC_SAMPLETIME_64CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -567,7 +569,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = TIA_RST_A_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(TIA_RST_A_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : IR_LED_850_S1_Pin IR_LED_735_S1_Pin */
@@ -591,7 +593,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* Control Portion */
-void CheckBufferFull(void)
+void Check_Buffer_Full_Task(void)
 {
   // Iterate over the buffers to check if any buffer is full and not being transmitted
   for (uint8_t i = 0; i < NUM_BUFFERS; i++) {
@@ -621,8 +623,8 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 /* Timer Portion */
-/*
- *  TODO: Explain what this is used for.
+/**
+ * @brief TODO write something about this function
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -664,8 +666,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	}
 }
 
-/*
- *  TODO: Explain what this is used for.
+/**
+ * @brief TODO write something about this function
  */
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -676,6 +678,7 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 			if (samplingActive == SAMPLING_ACTIVE)
 			{
 						// Start ADC conversion at 180 µs
+						HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
             HAL_ADC_Start_IT(&hadc1);
 			}
     }
@@ -683,19 +686,38 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 }
 
 /* ADC Portion */
+/**
+ * @brief TODO write something about this function
+ */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-    if(hadc->Instance == ADC1)
-    {
-      // Process the ADC conversion result
-      uint16_t adcValue = HAL_ADC_GetValue(hadc);
+	if(hadc->Instance == ADC1)
+	{
+		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
+		// Process the ADC conversion result
+		uint16_t adcValue = HAL_ADC_GetValue(hadc);
 
-    	// Store ADC value in the current buffer
-    	dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
-    }
+		// Store ADC value in the current buffer
+		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
+	}
 }
 
-
+/* Error Handling Portion */
+/**
+ * @brief TODO write something about this function
+ */
+void Buffers_Overflow_Error_Task(void)
+{
+	if(dataBuffers[0].bufferFullFlag == BUFFER_FULL && dataBuffers[1].bufferFullFlag == BUFFER_FULL)
+	{
+		HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
+		__disable_irq();
+		//Probably disable TIMERx, and ADC here.
+		while (1)
+		{
+		}
+	}
+}
 
 /* USER CODE END 4 */
 
