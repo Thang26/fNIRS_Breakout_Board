@@ -64,6 +64,21 @@ UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
+/*
+ * This index is used to iterate through the buffer storing ADC samples.
+ */
+volatile uint8_t adcSampleIndex = 0;
+
+/*
+ * This index is used to denote which buffer (0 or 1) is being filled by the ADC.
+ * This is used by dataBuffers array to switch between which buffer is being referred to.
+ */
+volatile uint8_t bufferNumIndex = 0;
+
+/*
+ *	TODO write a description here.
+ */
+DataBuffer_t dataBuffers[NUM_BUFFERS];
 
 /* USER CODE END PV */
 
@@ -81,6 +96,11 @@ static void MX_TIM3_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/*
+ * Task Array for Round-Robin Scheduler
+ */
+void (*TaskArray[NUM_TASKS])(void) = {/*TODO*/};
 
 /* USER CODE END 0 */
 
@@ -119,6 +139,13 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+	HAL_TIM_Base_Start_IT(&htim2);	//10 ms
+
+	HAL_GPIO_TogglePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin);
+	HAL_TIM_Base_Start_IT(&htim3);	//200 μs
+
+	// Round-Robin Scheduler Variables
+  uint8_t currentTask = 0;
 
   /* USER CODE END 2 */
 
@@ -126,6 +153,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+		// Call the current task
+		//TODO TaskArray[currentTask]();
+
+		// Move to the next task
+		//TODO currentTask = (currentTask + 1) % NUM_TASKS;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -530,6 +562,12 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+/* Control Portion */
+
+
+/* UART Portion */
+
+
 /* Timer Portion */
 /*
  *  TODO: Explain what this is used for.
@@ -548,6 +586,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
       // Code to execute every 200 µs (TIM3)
       __HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+			HAL_GPIO_TogglePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin);
       //TODO
 
     }
@@ -558,12 +597,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  */
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if(htim->Instance == TIM3)
+    if (htim->Instance == TIM3)
     {
-        if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+        if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
         {
-            // Start the ADC conversion
-            HAL_ADC_Start_IT(&hadc1);
+            // Start ADC conversion at 180 µs
+            HAL_GPIO_TogglePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin);
         }
     }
 }
