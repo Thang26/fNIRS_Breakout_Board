@@ -139,10 +139,15 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-	HAL_TIM_Base_Start_IT(&htim2);	//10 ms
+	// TODO Write description
+	HAL_TIM_Base_Start_IT(&htim2);
 
-	HAL_GPIO_TogglePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin);
-	HAL_TIM_Base_Start_IT(&htim3);	//200 μs
+	// TODO Write Description
+	if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){ Error_Handler(); }
+
+	// TODO Write Description
+	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
+
 
 	// Round-Robin Scheduler Variables
   uint8_t currentTask = 0;
@@ -586,7 +591,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
       // Code to execute every 200 µs (TIM3)
       __HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
-			HAL_GPIO_TogglePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin);
       //TODO
 
     }
@@ -602,7 +606,6 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
         if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
         {
             // Start ADC conversion at 180 µs
-            HAL_GPIO_TogglePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin);
         }
     }
 }
