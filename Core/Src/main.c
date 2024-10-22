@@ -48,7 +48,7 @@
 typedef struct {
 	uint32_t uniqueHeader;
 	uint16_t adcSamples[SAMPLE_COUNT];
-	uint32_t uniqueEnder;
+	uint32_t uniqueEnder;	//The future vision here is a checksum.
 } DataPacket_t;
 
 /* This is an object that is being passed around. It mimics OOP but in C instead. */
@@ -185,6 +185,10 @@ int main(void)
 
 	// TODO Write Description
 	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
+
+	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
+
+	HAL_GPIO_WritePin(IR_LED_850_S1_GPIO_Port, IR_LED_850_S1_Pin, GPIO_PIN_SET);
 
 	// Round-Robin Scheduler Variables
   uint8_t currentTask = 0;
@@ -597,6 +601,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(LED_YELLOW_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -643,6 +648,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		// Code to execute every 10 ms (TIM2)
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 
+		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
+
 		// Raises the flag for TIMER3 (200us) to start doing its job again.
 		samplingActive = SAMPLING_ACTIVE;
 
@@ -653,6 +660,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		{
 			// Code to execute every 200 µs (TIM3)
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+
+			HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 		}
 	}
 }
@@ -669,7 +678,6 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 			if (samplingActive == SAMPLING_ACTIVE)
 			{
 						// Start ADC conversion at 180 µs
-						HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
             HAL_ADC_Start_IT(&hadc1);
 			}
     }
@@ -684,12 +692,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if(hadc->Instance == ADC1)
 	{
-		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 		// Process the ADC conversion result
 		uint16_t adcValue = HAL_ADC_GetValue(hadc);
 
 		// Store ADC value in the current buffer
 		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
+
+		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
 
 		// Increment adcSampleIndex after storing the value.
     adcSampleIndex++;
