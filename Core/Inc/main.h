@@ -75,6 +75,8 @@ void Error_Handler(void);
 #define TIA_RST_A_GPIO_Port GPIOC
 #define IR_LED_850_S1_Pin GPIO_PIN_8
 #define IR_LED_850_S1_GPIO_Port GPIOA
+#define IR_LED_850_S2_Pin GPIO_PIN_7
+#define IR_LED_850_S2_GPIO_Port GPIOC
 #define IR_LED_735_S1_Pin GPIO_PIN_9
 #define IR_LED_735_S1_GPIO_Port GPIOA
 #define SWDIO_Pin GPIO_PIN_13

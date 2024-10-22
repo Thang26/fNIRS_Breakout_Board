@@ -188,7 +188,7 @@ int main(void)
 
 	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 
-	HAL_GPIO_WritePin(IR_LED_850_S1_GPIO_Port, IR_LED_850_S1_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(IR_LED_850_S2_GPIO_Port, IR_LED_850_S2_Pin, GPIO_PIN_SET);
 
 	// Round-Robin Scheduler Variables
   uint8_t currentTask = 0;
@@ -566,6 +566,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_YELLOW_GPIO_Port, LED_YELLOW_Pin, GPIO_PIN_RESET);
 
+	HAL_GPIO_WritePin(IR_LED_850_S2_GPIO_Port, IR_LED_850_S2_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -593,6 +595,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+	/*Configure GPIO pin : TODO NEW_PIN_Pin */
+  GPIO_InitStruct.Pin = IR_LED_850_S2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(IR_LED_850_S2_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : LED_YELLOW_Pin */
   GPIO_InitStruct.Pin = LED_YELLOW_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -601,7 +610,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(LED_YELLOW_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
-HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
