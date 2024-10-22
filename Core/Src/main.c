@@ -31,6 +31,8 @@
 #define NUM_TASKS 1
 #define NUM_BUFFERS 2
 
+#define NO_TRANSMISSION_IN_PROGRESS 255
+
 /* USER CODE END PD */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -74,6 +76,14 @@ volatile uint8_t adcSampleIndex = 0;
  * This is used by dataBuffers array to switch between which buffer is being referred to.
  */
 volatile uint8_t bufferNumIndex = 0;
+
+/*
+ * This is a flag that allows TIMER3 to do its job of collecting ADC data or switching buffer.
+ * This flag is lowered once 40 ADC samples have been collected, effectively rendering
+ * TIMER3 idle until the next 10ms sampling interval. This flag approach is a bandaid method
+ * since you cannot disable TIMER3 (200us) and start it again within the IRQ handler of TIMER2 (10ms).
+ */
+volatile uint8_t samplingActive = 1;
 
 /*
  *	TODO write a description here.
@@ -140,7 +150,7 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 	// TODO Write description
-	HAL_TIM_Base_Start_IT(&htim2);
+	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
 
 	// TODO Write Description
 	if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){ Error_Handler(); }
@@ -159,10 +169,10 @@ int main(void)
   while (1)
   {
 		// Call the current task
-		//TODO TaskArray[currentTask]();
+		TaskArray[currentTask]();
 
 		// Move to the next task
-		//TODO currentTask = (currentTask + 1) % NUM_TASKS;
+		currentTask = (currentTask + 1) % NUM_TASKS;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -568,10 +578,43 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* Control Portion */
+void CheckBufferFull(void)
+{
+  static uint8_t transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS; // Invalid index to indicate no transmission in progress
 
+  // Iterate over the buffers to check if any buffer is full and not being transmitted
+  for (uint8_t i = 0; i < NUM_BUFFERS; i++) {
+    if (dataBuffers[i].bufferFullFlag && transmittingBuffer == 255) {
+        // Disable interrupts to protect shared data
+        __disable_irq();
+
+        dataBuffers[i].bufferFullFlag = 0; // Reset the buffer full flag
+
+        __enable_irq();
+
+        // Populate header data
+        dataBuffers[i].dataPacket.packetID++;
+        dataBuffers[i].dataPacket.timestamp = HAL_GetTick();
+
+        // Calculate checksum
+        dataBuffers[i].dataPacket.checksum = CalculateChecksum(&dataBuffers[i].dataPacket);
+
+        // Start UART transmission
+        transmittingBuffer = i;
+        HAL_UART_Transmit_IT(&huart1, (uint8_t*)&dataBuffers[i].dataPacket, sizeof(DataPacket_t));
+        break; // Only handle one buffer at a time
+    }
+  }
+}
 
 /* UART Portion */
-
+/*
+ *  TODO: Explain what this is used for.
+ */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+    // Transmission is complete
+    // TODO Reset the transmitting buffer indicator
+}
 
 /* Timer Portion */
 /*
@@ -579,21 +622,42 @@ static void MX_GPIO_Init(void)
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    // Check which timer triggered this callback
-    if (htim->Instance == TIM2)
-    {
-      // Code to execute every 10 ms (TIM2)
-      __HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
-      //TODO
+	if (htim->Instance == TIM2)
+	{
+		// Code to execute every 10 ms (TIM2)
+		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 
-    }
-    else if (htim->Instance == TIM3)
-    {
-      // Code to execute every 200 µs (TIM3)
-      __HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
-      //TODO
+		// Raises the flag for TIMER3 (200us) to start doing its job again.
+		samplingActive = 1;
 
-    }
+	}
+	else if (htim->Instance == TIM3)
+	{
+		if (samplingActive == 1)
+		{
+			// Code to execute every 200 µs (TIM3)
+			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+			
+			adcSampleIndex++;
+
+			if (adcSampleIndex >= SAMPLE_COUNT) {
+					// Disable interrupts to protect shared data
+					__disable_irq();
+
+					// Buffer is full
+					dataBuffers[bufferNumIndex].bufferFullFlag = 1; // Set buffer full flag
+					adcSampleIndex = 0;          // Reset sample index
+
+					// Switch to the next buffer
+					bufferNumIndex = (bufferNumIndex + 1) % NUM_BUFFERS;
+
+					//Timer3 has finished its job. It will go idle for now until the next 10ms sampling interval.
+					samplingActive = 0;
+
+					__enable_irq();
+			}
+		}
+	}
 }
 
 /*
@@ -601,13 +665,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  */
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM3)
+  if (htim->Instance == TIM3)
+  {
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
     {
-        if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-        {
-            // Start ADC conversion at 180 µs
-        }
+			if (samplingActive == 1)
+			{
+						// Start ADC conversion at 180 µs
+            HAL_ADC_Start_IT(&hadc1);
+			}
     }
+  }
 }
 
 /* ADC Portion */
@@ -615,8 +683,11 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
     if(hadc->Instance == ADC1)
     {
-        // Process the ADC conversion result
-        //TODO
+      // Process the ADC conversion result
+      uint16_t adcValue = HAL_ADC_GetValue(hadc);
+
+    	// Store ADC value in the current buffer
+    	dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
     }
 }
 
