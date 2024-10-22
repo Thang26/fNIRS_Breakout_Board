@@ -46,7 +46,9 @@
 
 /* This is what we send over UART to the PC. */
 typedef struct {
+	uint32_t uniqueHeader;
 	uint16_t adcSamples[SAMPLE_COUNT];
+	uint32_t uniqueEnder;
 } DataPacket_t;
 
 /* This is an object that is being passed around. It mimics OOP but in C instead. */
@@ -158,7 +160,7 @@ int main(void)
 
   /* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
+  /* Initialize all configured peripherals. */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
   MX_ADC1_Init();
@@ -166,6 +168,15 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+
+	/* Initializes the two buffer objects with data. */
+	for (uint8_t i = 0; i < NUM_BUFFERS; i++)
+	{
+		dataBuffers[i].dataPacket.uniqueHeader = 0xFFFFFFFF;
+		dataBuffers[i].dataPacket.uniqueEnder = 0xDEADBEEF;
+		dataBuffers[i].bufferFullFlag = BUFFER_EMPTY;
+	}
+
 	// TODO Write description
 	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
 
@@ -174,7 +185,6 @@ int main(void)
 
 	// TODO Write Description
 	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
-
 
 	// Round-Robin Scheduler Variables
   uint8_t currentTask = 0;
@@ -441,7 +451,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 230400;
+  huart4.Init.BaudRate = 115200;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
@@ -643,25 +653,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		{
 			// Code to execute every 200 µs (TIM3)
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
-			
-			adcSampleIndex++;
-
-			if (adcSampleIndex >= SAMPLE_COUNT) {
-					// Disable interrupts to protect shared data
-					__disable_irq();
-
-					// Buffer is full
-					dataBuffers[bufferNumIndex].bufferFullFlag = BUFFER_FULL; // Set buffer full flag
-					adcSampleIndex = 0;          // Reset sample index
-
-					// Switch to the next buffer
-					bufferNumIndex = (bufferNumIndex + 1) % NUM_BUFFERS;
-
-					//Timer3 has finished its job. It will go idle for now until the next 10ms sampling interval.
-					samplingActive = SAMPLING_INACTIVE;
-
-					__enable_irq();
-			}
 		}
 	}
 }
@@ -699,6 +690,27 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 		// Store ADC value in the current buffer
 		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
+
+		// Increment adcSampleIndex after storing the value.
+    adcSampleIndex++;
+
+    // Check if buffer is full.
+    if (adcSampleIndex >= SAMPLE_COUNT)
+    {
+      __disable_irq();
+
+      // Buffer is full
+      dataBuffers[bufferNumIndex].bufferFullFlag = BUFFER_FULL; // Set buffer full flag.
+      adcSampleIndex = 0;          // Reset sample index.
+
+      // Switch to the next buffer.
+      bufferNumIndex = (bufferNumIndex + 1) % NUM_BUFFERS;
+
+			// Sampling is complete.
+      samplingActive = SAMPLING_INACTIVE;
+
+      __enable_irq();
+		}
 	}
 }
 
