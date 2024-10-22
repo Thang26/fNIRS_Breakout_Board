@@ -27,11 +27,17 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SAMPLE_COUNT 40
-#define NUM_TASKS 1
-#define NUM_BUFFERS 2
+#define SAMPLE_COUNT 40U
+#define NUM_TASKS 1U
+#define NUM_BUFFERS 2U
 
-#define NO_TRANSMISSION_IN_PROGRESS 255
+#define NO_TRANSMISSION_IN_PROGRESS 255U
+
+#define BUFFER_EMPTY 0U
+#define BUFFER_FULL 1U
+
+#define SAMPLING_INACTIVE 0U
+#define SAMPLING_ACTIVE 1U
 
 /* USER CODE END PD */
 
@@ -83,7 +89,12 @@ volatile uint8_t bufferNumIndex = 0;
  * TIMER3 idle until the next 10ms sampling interval. This flag approach is a bandaid method
  * since you cannot disable TIMER3 (200us) and start it again within the IRQ handler of TIMER2 (10ms).
  */
-volatile uint8_t samplingActive = 1;
+volatile uint8_t samplingActive = SAMPLING_ACTIVE;
+
+/*
+ * This flag indicates whether a UART transmission is in progress or not.
+ */
+uint8_t transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS; // Invalid index to indicate no transmission in progress
 
 /*
  *	TODO write a description here.
@@ -101,6 +112,7 @@ static void MX_UART4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
+void CheckBufferFull(void);
 
 /* USER CODE END PFP */
 
@@ -110,7 +122,10 @@ static void MX_TIM3_Init(void);
 /*
  * Task Array for Round-Robin Scheduler
  */
-void (*TaskArray[NUM_TASKS])(void) = {/*TODO*/};
+void (*TaskArray[NUM_TASKS])(void) = 
+{
+	CheckBufferFull
+};
 
 /* USER CODE END 0 */
 
@@ -246,8 +261,6 @@ void SystemClock_Config(void)
 static void MX_ADC1_Init(void)
 {
 
-  /* USER CODE BEGIN ADC1_Init 0 */
-
   /* USER CODE END ADC1_Init 0 */
 
   ADC_MultiModeTypeDef multimode = {0};
@@ -261,7 +274,7 @@ static void MX_ADC1_Init(void)
   */
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV2;
-  hadc1.Init.Resolution = ADC_RESOLUTION_14B;
+  hadc1.Init.Resolution = ADC_RESOLUTION_16B;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
@@ -292,7 +305,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_387CYCLES_5;;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -580,28 +593,19 @@ static void MX_GPIO_Init(void)
 /* Control Portion */
 void CheckBufferFull(void)
 {
-  static uint8_t transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS; // Invalid index to indicate no transmission in progress
-
   // Iterate over the buffers to check if any buffer is full and not being transmitted
   for (uint8_t i = 0; i < NUM_BUFFERS; i++) {
-    if (dataBuffers[i].bufferFullFlag && transmittingBuffer == 255) {
+    if ((dataBuffers[i].bufferFullFlag == BUFFER_FULL) && (transmittingBuffer == NO_TRANSMISSION_IN_PROGRESS)) {
         // Disable interrupts to protect shared data
         __disable_irq();
 
-        dataBuffers[i].bufferFullFlag = 0; // Reset the buffer full flag
+        dataBuffers[i].bufferFullFlag = BUFFER_EMPTY; // Reset the buffer full flag
 
         __enable_irq();
 
-        // Populate header data
-        dataBuffers[i].dataPacket.packetID++;
-        dataBuffers[i].dataPacket.timestamp = HAL_GetTick();
-
-        // Calculate checksum
-        dataBuffers[i].dataPacket.checksum = CalculateChecksum(&dataBuffers[i].dataPacket);
-
         // Start UART transmission
         transmittingBuffer = i;
-        HAL_UART_Transmit_IT(&huart1, (uint8_t*)&dataBuffers[i].dataPacket, sizeof(DataPacket_t));
+        HAL_UART_Transmit_IT(&huart4, (uint8_t*)&dataBuffers[i].dataPacket, sizeof(DataPacket_t));
         break; // Only handle one buffer at a time
     }
   }
@@ -613,7 +617,7 @@ void CheckBufferFull(void)
  */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
     // Transmission is complete
-    // TODO Reset the transmitting buffer indicator
+    transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS;
 }
 
 /* Timer Portion */
@@ -628,12 +632,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 
 		// Raises the flag for TIMER3 (200us) to start doing its job again.
-		samplingActive = 1;
+		samplingActive = SAMPLING_ACTIVE;
 
 	}
 	else if (htim->Instance == TIM3)
 	{
-		if (samplingActive == 1)
+		if (samplingActive == SAMPLING_ACTIVE)
 		{
 			// Code to execute every 200 µs (TIM3)
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
@@ -645,14 +649,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					__disable_irq();
 
 					// Buffer is full
-					dataBuffers[bufferNumIndex].bufferFullFlag = 1; // Set buffer full flag
+					dataBuffers[bufferNumIndex].bufferFullFlag = BUFFER_FULL; // Set buffer full flag
 					adcSampleIndex = 0;          // Reset sample index
 
 					// Switch to the next buffer
 					bufferNumIndex = (bufferNumIndex + 1) % NUM_BUFFERS;
 
 					//Timer3 has finished its job. It will go idle for now until the next 10ms sampling interval.
-					samplingActive = 0;
+					samplingActive = SAMPLING_INACTIVE;
 
 					__enable_irq();
 			}
@@ -669,7 +673,7 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
   {
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
     {
-			if (samplingActive == 1)
+			if (samplingActive == SAMPLING_ACTIVE)
 			{
 						// Start ADC conversion at 180 µs
             HAL_ADC_Start_IT(&hadc1);
