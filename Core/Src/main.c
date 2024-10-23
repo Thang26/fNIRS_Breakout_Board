@@ -188,7 +188,9 @@ int main(void)
 
 	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 
-	HAL_GPIO_WritePin(IR_LED_850_S2_GPIO_Port, IR_LED_850_S2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(IR_LED_850_S1_GPIO_Port, IR_LED_850_S1_Pin, GPIO_PIN_SET);
+
+	//HAL_GPIO_WritePin(IR_LED_850_S2_GPIO_Port, IR_LED_850_S2_Pin, GPIO_PIN_SET);
 
 	// Round-Robin Scheduler Variables
   uint8_t currentTask = 0;
@@ -566,6 +568,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_YELLOW_GPIO_Port, LED_YELLOW_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(IR_LED_850_S2_GPIO_Port, IR_LED_850_S2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
@@ -740,7 +743,7 @@ void Buffers_Overflow_Error_Task(void)
 {
 	if(dataBuffers[0].bufferFullFlag == BUFFER_FULL && dataBuffers[1].bufferFullFlag == BUFFER_FULL)
 	{
-		HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
+		//HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET); Disabled by fault. Only enable for Nucleo board.
 		__disable_irq();
 		//Probably disable TIMERx, and ADC here.
 		while (1)
