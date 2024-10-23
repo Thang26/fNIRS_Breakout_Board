@@ -86,6 +86,9 @@ void Error_Handler(void);
 #define LED_YELLOW_Pin GPIO_PIN_1
 #define LED_YELLOW_GPIO_Port GPIOE
 
+#define MCU_BOARD_LED_Port GPIOD
+#define MCU_BOARD_LED_Pin GPIO_PIN_5
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
