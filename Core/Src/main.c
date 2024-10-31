@@ -189,7 +189,7 @@ int main(void)
 
   HAL_GPIO_WritePin(IR_LED_735_S1_GPIO_Port, IR_LED_735_S1_Pin, GPIO_PIN_SET);
 
-  HAL_GPIO_WritePin(MCU_BOARD_LED_Port, MCU_BOARD_LED_Pin, SET);
+  //HAL_GPIO_WritePin(MCU_BOARD_LED_Port, MCU_BOARD_LED_Pin, SET);
 
 	//HAL_GPIO_WritePin(IR_LED_850_S2_GPIO_Port, IR_LED_850_S2_Pin, GPIO_PIN_SET);
 
@@ -612,7 +612,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = MCU_BOARD_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(MCU_BOARD_LED_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -694,6 +694,7 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 			{
 						// Start ADC conversion at 180 µs
             HAL_ADC_Start_IT(&hadc1);
+            HAL_GPIO_WritePin(MCU_BOARD_LED_Port, MCU_BOARD_LED_Pin, SET);
 			}
     }
   }
@@ -709,6 +710,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	{
 		// Process the ADC conversion result
 		uint16_t adcValue = HAL_ADC_GetValue(hadc);
+    HAL_GPIO_WritePin(MCU_BOARD_LED_Port, MCU_BOARD_LED_Pin, RESET);
 
 		// Store ADC value in the current buffer
 		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
