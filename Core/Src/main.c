@@ -187,7 +187,7 @@ int main(void)
 
 	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 
-  HAL_GPIO_WritePin(IR_LED_735_S1_GPIO_Port, IR_LED_735_S1_Pin, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(IR_LED_850_S1_GPIO_Port, IR_LED_850_S1_Pin, GPIO_PIN_SET);
 
   //HAL_GPIO_WritePin(MCU_BOARD_LED_Port, MCU_BOARD_LED_Pin, SET);
 
@@ -436,7 +436,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 450;
+  sConfigOC.Pulse = 225;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -603,7 +603,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = IR_LED_850_S1_Pin|IR_LED_735_S1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LED_YELLOW_Pin */
@@ -675,6 +675,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 
     // Start charging the TIA.
+    HAL_GPIO_WritePin(IR_LED_850_S1_GPIO_Port, IR_LED_850_S1_Pin, GPIO_PIN_SET);
 		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 
 		// Raises the flag for TIMER3 (200us) to start doing its job again.
@@ -689,6 +690,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
 
       // Start charging the TIA.
+      HAL_GPIO_WritePin(IR_LED_850_S1_GPIO_Port, IR_LED_850_S1_Pin, GPIO_PIN_SET);
 			HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 		}
 	}
@@ -729,6 +731,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
 
     // Resets the TIA.
+    HAL_GPIO_WritePin(IR_LED_850_S1_GPIO_Port, IR_LED_850_S1_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
 
 		// Increment adcSampleIndex after storing the value.
