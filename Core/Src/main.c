@@ -611,7 +611,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = TIA_RST_A_DEBUG_OUTPUT_Pin|ADC1_DEBUG_OUTPUT_Pin|TIMER2_DEBUG_OUTPUT_Pin|TIMER3_DEBUG_OUTPUT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LED_YELLOW_Pin */
@@ -709,7 +709,7 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 			if (samplingActive == SAMPLING_ACTIVE)
 			{
 						// Start ADC conversion at 180 µs
-            HAL_GPIO_WritePin(ADC1_DEBUG_OUTPUT_GPIO_Port, ADC1_DEBUG_OUTPUT_Pin, SET);
+            HAL_GPIO_WritePin(ADC1_DEBUG_OUTPUT_GPIO_Port, ADC1_DEBUG_OUTPUT_Pin, GPIO_PIN_SET);
             HAL_ADC_Start_IT(&hadc1);
 			}
     }
@@ -726,7 +726,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	{
 		// Process the ADC conversion result
 		uint16_t adcValue = HAL_ADC_GetValue(hadc);
-    HAL_GPIO_WritePin(ADC1_DEBUG_OUTPUT_GPIO_Port, ADC1_DEBUG_OUTPUT_Pin, RESET);
+    HAL_GPIO_WritePin(ADC1_DEBUG_OUTPUT_GPIO_Port, ADC1_DEBUG_OUTPUT_Pin, GPIO_PIN_RESET);
 
 		// Store ADC value in the current buffer
 		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
@@ -765,7 +765,7 @@ void Buffers_Overflow_Error_Task(void)
 {
 	if(dataBuffers[0].bufferFullFlag == BUFFER_FULL && dataBuffers[1].bufferFullFlag == BUFFER_FULL)
 	{
-		//HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET); Disabled by fault. Only enable for Nucleo board.
+		HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET); //Disabled by fault. Only enable for Nucleo board.
 		__disable_irq();
 		//Probably disable TIMERx, and ADC here.
 		while (1)
