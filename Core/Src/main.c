@@ -349,6 +349,8 @@ static void MX_ADC1_Init(void)
 
 /**
   * @brief TIM2 Initialization Function
+  * TIM2 is on APB1 bus matrix. Refer to page 139 of STM32H723ZG ref. manual
+  * Timer Period = (Prescaler + 1) * (ARR + 1) / f_clk (Hz)
   * @param None
   * @retval None
   */
@@ -394,6 +396,8 @@ static void MX_TIM2_Init(void)
 
 /**
   * @brief TIM3 Initialization Function
+  * TIM3 is on APB1 bus matrix. Refer to page 139 of STM32H723ZG ref. manual
+  * Timer Period = (Prescaler + 1) * (ARR + 1) / f_clk (Hz)
   * @param None
   * @retval None
   */
