@@ -178,9 +178,11 @@ int main(void)
 
 	// TODO Write description
 	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
+  HAL_GPIO_TogglePin(TIMER2_DEBUG_OUTPUT_GPIO_Port, TIMER2_DEBUG_OUTPUT_Pin);
 
 	// TODO Write Description
 	if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){ Error_Handler(); }
+  HAL_GPIO_TogglePin(TIMER3_DEBUG_OUTPUT_GPIO_Port, TIMER3_DEBUG_OUTPUT_Pin);
 
 	// TODO Write Description
 	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
@@ -194,10 +196,6 @@ int main(void)
    * 1) 
    * 2) 
    */
-
-  HAL_GPIO_WritePin(IR_LED_735_S1_GPIO_Port, IR_LED_735_S1_Pin, GPIO_PIN_SET);
-
-  HAL_GPIO_WritePin(MCU_BOARD_LED_Port, MCU_BOARD_LED_Pin, SET);
 
 	//HAL_GPIO_WritePin(IR_LED_850_S2_GPIO_Port, IR_LED_850_S2_Pin, GPIO_PIN_SET);
 
@@ -676,6 +674,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	{
 		// Code to execute every 10 ms (TIM2)
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+    HAL_GPIO_TogglePin(TIMER2_DEBUG_OUTPUT_GPIO_Port, TIMER2_DEBUG_OUTPUT_Pin);
 
     // Start charging the TIA.
 		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
@@ -690,6 +689,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		{
 			// Code to execute every 200 µs (TIM3)
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+      HAL_GPIO_TogglePin(TIMER3_DEBUG_OUTPUT_GPIO_Port, TIMER3_DEBUG_OUTPUT_Pin);
 
       // Start charging the TIA.
 			HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
@@ -709,6 +709,7 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 			if (samplingActive == SAMPLING_ACTIVE)
 			{
 						// Start ADC conversion at 180 µs
+            HAL_GPIO_WritePin(ADC1_DEBUG_OUTPUT_GPIO_Port, ADC1_DEBUG_OUTPUT_Pin, SET);
             HAL_ADC_Start_IT(&hadc1);
 			}
     }
@@ -725,6 +726,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	{
 		// Process the ADC conversion result
 		uint16_t adcValue = HAL_ADC_GetValue(hadc);
+    HAL_GPIO_WritePin(ADC1_DEBUG_OUTPUT_GPIO_Port, ADC1_DEBUG_OUTPUT_Pin, RESET);
 
 		// Store ADC value in the current buffer
 		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
