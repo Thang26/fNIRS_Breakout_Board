@@ -185,7 +185,7 @@ int main(void)
 	// TODO Write Description
 	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
 
-	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 
   HAL_GPIO_WritePin(IR_LED_735_S1_GPIO_Port, IR_LED_735_S1_Pin, GPIO_PIN_SET);
 
@@ -621,7 +621,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(MCU_BOARD_LED_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
-
+HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -659,7 +659,13 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 
 /* Timer Portion */
 /**
- * @brief TODO write something about this function
+ * @brief IRQ handler callback function for when the timers have overflown.
+ * For 10ms overflown event:
+ * 1) Sets sampling active flag to begin the 40x ADC sampling cycle again.
+ * 2) Start charging the TIA for the first 200us cycle.
+ * 
+ * For 200us overflown event:
+ * 1) Start charging the TIA for the next 200us cycle.
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -668,7 +674,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		// Code to execute every 10 ms (TIM2)
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 
-		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+    // Start charging the TIA.
+		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 
 		// Raises the flag for TIMER3 (200us) to start doing its job again.
 		samplingActive = SAMPLING_ACTIVE;
@@ -681,7 +688,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			// Code to execute every 200 µs (TIM3)
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
 
-			HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+      // Start charging the TIA.
+			HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
 		}
 	}
 }
@@ -720,7 +728,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 		// Store ADC value in the current buffer
 		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
 
-		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
+    // Resets the TIA.
+		HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
 
 		// Increment adcSampleIndex after storing the value.
     adcSampleIndex++;
