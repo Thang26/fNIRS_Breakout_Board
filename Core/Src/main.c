@@ -616,7 +616,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(MCU_BOARD_LED_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
-	HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
